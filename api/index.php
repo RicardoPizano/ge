@@ -1,6 +1,30 @@
 <?php
+if(isset($_SERVER["HTTP_ORIGIN"]))
+{
+    // You can decide if the origin in $_SERVER['HTTP_ORIGIN'] is something you want to allow, or as we do here, just allow all
+    header("Access-Control-Allow-Origin: {$_SERVER['HTTP_ORIGIN']}");
+}
+else
+{
+    //No HTTP_ORIGIN set, so we allow any. You can disallow if needed here
+    header("Access-Control-Allow-Origin: *");
+}
 
-    $ubicacionExe = "C:/xampp/htdocs/ge/turbinas/turbine_lib.exe ";
+header("Access-Control-Allow-Credentials: true");
+header("Access-Control-Max-Age: 600");    // cache for 10 minutes
+
+if($_SERVER["REQUEST_METHOD"] == "OPTIONS")
+{
+    if (isset($_SERVER["HTTP_ACCESS_CONTROL_REQUEST_METHOD"]))
+        header("Access-Control-Allow-Methods: POST, GET, OPTIONS, DELETE, PUT"); //Make sure you remove those you do not want to support
+
+    if (isset($_SERVER["HTTP_ACCESS_CONTROL_REQUEST_HEADERS"]))
+        header("Access-Control-Allow-Headers: {$_SERVER['HTTP_ACCESS_CONTROL_REQUEST_HEADERS']}");
+
+    //Just exit with 200 OK with the above headers for OPTIONS method
+    exit(0);
+}
+$ubicacionExe = "C:/xampp/htdocs/ge/turbinas/turbine_lib.exe ";
     $comandos = [
         "--atmosphere-p0=",
         "--atmosphere-t0=",
@@ -17,25 +41,40 @@
         "--regenerator-T_stag_hot_in=",
         "--regenerator-T_stag_hot_out="
     ];
-    $corridas = $_GET['data'];
-    $respuesta = [];
+    if(isset($_GET['data'])) {
+        $corridas = $_GET['data'];
 
-    for($i = 0; $i < count($corridas); $i++){
-        $resultado = [];
-        $comando = "";
-        for($j = 0; $j < count($corridas[$i]); $j++){
-            if($corridas[$i][$j] != ""){
-                $comando .= $comandos[$j].$corridas[$i][$j]." ";
+        if($corridas != "") {
+            $respuesta = [];
+
+            for ($i = 0; $i < count($corridas); $i++) {
+                // print_r($corridas[$i]);
+                $resultado = [];
+                $comando = "";
+                for ($j = 0; $j < count($corridas[$i]); $j++) {
+                    if ($corridas[$i][$j] != "") {
+                        $comando .= $comandos[$j] . $corridas[$i][$j] . " ";
+                    }
+                }
+                exec($ubicacionExe . $comando, $salida);
+                $res = [];
+                $flag = 0;
+                for ($k = 0; $k < count($salida); $k++) {
+                    $split = explode("=", $salida[$k]);
+                    $res['output' . $flag] = $split[1];
+                    $flag++;
+                }
+                array_push($respuesta, $res);
+                unset($res, $salida);
             }
+                $json = json_encode(["res" => "1", "data" => $respuesta]);
+                print $json;
+        }else{
+            print("<h1 style='width: 100%; margin-top: 20%; text-align: center'>Error</h1>");
         }
-        exec($ubicacionExe.$comando, $salida);
-        $res = [];
-        for($i = 0; $i < count($salida); $i ++){
-            $split = explode("=", $salida[$i]);
-            $res[$split[0]] = $split[1];
-        }
-        array_push($respuesta, $res);
-    }
+    }else if(isset($_GET["android"])){
 
-    $json = json_encode(["data" => $respuesta]);
-    print $json;
+
+    }else{
+        print("<h1 style='width: 100%; margin-top: 20%; text-align: center'>Error</h1>");
+    }
